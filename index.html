@@ -6,7 +6,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f8f9fa; color: #212529; }
-        .container { display: flex; gap: 25px; max-width: 1100px; margin: auto; visibility: hidden; } /* Hidden until password check */
+        .container { display: flex; gap: 25px; max-width: 1100px; margin: auto; } 
         .controls { flex: 1; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .visualization { flex: 1.5; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .slider-group { margin-bottom: 20px; }
@@ -21,14 +21,14 @@
 </head>
 <body>
 
-<h2 id="title">Pricing Strategy Logic Simulator</h2>
+<h2>Pricing Strategy Logic Simulator</h2>
 
-<div class="container" id="main-content">
+<div class="container">
     <div class="controls">
         <h3>Input Parameters</h3>
         
         <div class="slider-group">
-            <label>Current Price: $<span id="val_curr">100</span></label>
+            <label>Current Admin Price: $<span id="val_curr">100</span></label>
             <input type="range" id="curr_price" min="50" max="200" value="100">
         </div>
 
@@ -68,15 +68,6 @@
 </div>
 
 <script>
-    // Password Protection
-    const pass = prompt("Please enter the authorization code to access the simulator:");
-    if (pass === "Pricing2026") {
-        document.getElementById('main-content').style.visibility = "visible";
-    } else {
-        alert("Access Denied.");
-        document.getElementById('title').innerText = "Unauthorized Access";
-    }
-
     const ctx = document.getElementById('pricingChart').getContext('2d');
     let chart;
 
@@ -96,20 +87,17 @@
         let steps = [];
         let finalPrice = curr;
 
-        // 1. Min Take Rate Floor (Assuming a base cost of 80 for demo)
         const cost = 80;
         const floorPrice = cost / (1 - mtr);
         steps.push(`1. <b>Margin Check:</b> Min Take Rate requires price ≥ $${floorPrice.toFixed(2)}`);
 
-        // 2. Bound Check
         const diffPercent = Math.abs(comp - curr) / curr;
         if (diffPercent > bound) {
-            steps.push(`2. <span class="warning"><b>Bound Triggered:</b> Gap (${(diffPercent*100).toFixed(1)}%) exceeds Bound (${bound*100}%). Data marked as anomaly. NO CHANGE.</span>`);
+            steps.push(`2. <span class="warning"><b>Bound Triggered:</b> Gap (${(diffPercent*100).toFixed(1)}%) exceeds Bound (${bound*100}%). NO CHANGE.</span>`);
             finalPrice = curr;
         } else {
             steps.push(`2. <b>Bound Check:</b> Price gap within acceptable range.`);
             
-            // 3. Threshold Adjustment
             let targetDiff = comp - curr;
             let maxAllowedChange = curr * thr;
             
@@ -123,7 +111,6 @@
             }
         }
 
-        // 4. Final Floor Correction
         if (finalPrice < floorPrice) {
             finalPrice = floorPrice;
             steps.push(`4. <span class="warning"><b>Floor Correction:</b> Calculated price was below margin floor. Forced to $${finalPrice.toFixed(2)}</span>`);
@@ -139,7 +126,7 @@
 
     function updateChart(curr, comp, floor, final) {
         const data = {
-            labels: ['Current', 'Competitor', 'Min Floor', 'Final Price'],
+            labels: ['Current Admin', 'Competitor', 'Min Floor', 'Final Price'],
             datasets: [{
                 data: [curr, comp, floor, final],
                 backgroundColor: ['#90caf9', '#ffab91', '#ef9a9a', '#66bb6a'],
@@ -154,7 +141,16 @@
             options: {
                 responsive: true,
                 plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: false, min: 30 } }
+                scales: { 
+                    y: { 
+                        beginAtZero: false, 
+                        min: 30,
+                        grid: { display: false } 
+                    },
+                    x: {
+                        grid: { display: false } 
+                    }
+                }
             }
         });
     }
