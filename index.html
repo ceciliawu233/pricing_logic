@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Pricing Strategy Simulator</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f8f9fa; color: #212529; }
+        .container { display: flex; gap: 25px; max-width: 1100px; margin: auto; visibility: hidden; } /* Hidden until password check */
+        .controls { flex: 1; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .visualization { flex: 1.5; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .slider-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.95rem; color: #495057; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .result-panel { margin-top: 25px; padding: 20px; background: #f1f8e9; border-radius: 8px; border-left: 5px solid #4caf50; }
+        .logic-step { font-size: 0.85rem; margin-bottom: 8px; padding-left: 10px; color: #444; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+        .warning { color: #d32f2f; font-weight: bold; background: #ffebee; padding: 2px 5px; border-radius: 3px; }
+        h2 { text-align: center; color: #1a73e8; margin-bottom: 30px; }
+        hr { border: 0; border-top: 1px dashed #ccc; margin: 20px 0; }
+    </style>
+</head>
+<body>
+
+<h2 id="title">Pricing Strategy Logic Simulator</h2>
+
+<div class="container" id="main-content">
+    <div class="controls">
+        <h3>Input Parameters</h3>
+        
+        <div class="slider-group">
+            <label>Current Price: $<span id="val_curr">100</span></label>
+            <input type="range" id="curr_price" min="50" max="200" value="100">
+        </div>
+
+        <div class="slider-group">
+            <label>Competitor Price: $<span id="val_comp">90</span></label>
+            <input type="range" id="comp_price" min="30" max="200" value="90">
+        </div>
+
+        <hr>
+        <h3>Strategic Constraints</h3>
+
+        <div class="slider-group">
+            <label>Min Take Rate: <span id="val_mtr">10</span>%</label>
+            <input type="range" id="mtr" min="0" max="30" value="10">
+        </div>
+
+        <div class="slider-group">
+            <label>Bound (Max Gap Allowed): <span id="val_bound">30</span>%</label>
+            <input type="range" id="bound" min="5" max="50" value="30">
+        </div>
+
+        <div class="slider-group">
+            <label>Threshold (Max Step Change): <span id="val_thr">5</span>%</label>
+            <input type="range" id="thr" min="1" max="20" value="5">
+        </div>
+    </div>
+
+    <div class="visualization">
+        <canvas id="pricingChart"></canvas>
+        
+        <div class="result-panel">
+            <strong>Decision Logic Trace:</strong>
+            <div id="steps" style="margin-top: 10px;"></div>
+            <h3 id="final_price_display" style="color: #2e7d32; margin-top: 15px;">Final Suggested Price: $100</h3>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Password Protection
+    const pass = prompt("Please enter the authorization code to access the simulator:");
+    if (pass === "Pricing2026") {
+        document.getElementById('main-content').style.visibility = "visible";
+    } else {
+        alert("Access Denied.");
+        document.getElementById('title').innerText = "Unauthorized Access";
+    }
+
+    const ctx = document.getElementById('pricingChart').getContext('2d');
+    let chart;
+
+    function calculate() {
+        const curr = parseFloat(document.getElementById('curr_price').value);
+        const comp = parseFloat(document.getElementById('comp_price').value);
+        const mtr = parseFloat(document.getElementById('mtr').value) / 100;
+        const bound = parseFloat(document.getElementById('bound').value) / 100;
+        const thr = parseFloat(document.getElementById('thr').value) / 100;
+
+        document.getElementById('val_curr').innerText = curr;
+        document.getElementById('val_comp').innerText = comp;
+        document.getElementById('val_mtr').innerText = (mtr*100).toFixed(0);
+        document.getElementById('val_bound').innerText = (bound*100).toFixed(0);
+        document.getElementById('val_thr').innerText = (thr*100).toFixed(0);
+
+        let steps = [];
+        let finalPrice = curr;
+
+        // 1. Min Take Rate Floor (Assuming a base cost of 80 for demo)
+        const cost = 80;
+        const floorPrice = cost / (1 - mtr);
+        steps.push(`1. <b>Margin Check:</b> Min Take Rate requires price ≥ $${floorPrice.toFixed(2)}`);
+
+        // 2. Bound Check
+        const diffPercent = Math.abs(comp - curr) / curr;
+        if (diffPercent > bound) {
+            steps.push(`2. <span class="warning"><b>Bound Triggered:</b> Gap (${(diffPercent*100).toFixed(1)}%) exceeds Bound (${bound*100}%). Data marked as anomaly. NO CHANGE.</span>`);
+            finalPrice = curr;
+        } else {
+            steps.push(`2. <b>Bound Check:</b> Price gap within acceptable range.`);
+            
+            // 3. Threshold Adjustment
+            let targetDiff = comp - curr;
+            let maxAllowedChange = curr * thr;
+            
+            if (Math.abs(targetDiff) > maxAllowedChange) {
+                let direction = targetDiff > 0 ? 1 : -1;
+                finalPrice = curr + (direction * maxAllowedChange);
+                steps.push(`3. <b>Threshold Applied:</b> Target was $${comp}, but single step is capped at $${maxAllowedChange.toFixed(2)}. New Target: $${finalPrice.toFixed(2)}`);
+            } else {
+                finalPrice = comp;
+                steps.push(`3. <b>Within Threshold:</b> Adjusting price directly to competitor at $${finalPrice}`);
+            }
+        }
+
+        // 4. Final Floor Correction
+        if (finalPrice < floorPrice) {
+            finalPrice = floorPrice;
+            steps.push(`4. <span class="warning"><b>Floor Correction:</b> Calculated price was below margin floor. Forced to $${finalPrice.toFixed(2)}</span>`);
+        } else {
+            steps.push(`4. <b>Final Check:</b> Price maintains required margin.`);
+        }
+
+        document.getElementById('steps').innerHTML = steps.map(s => `<div class="logic-step">${s}</div>`).join('');
+        document.getElementById('final_price_display').innerText = `Final Suggested Price: $${finalPrice.toFixed(2)}`;
+
+        updateChart(curr, comp, floorPrice, finalPrice);
+    }
+
+    function updateChart(curr, comp, floor, final) {
+        const data = {
+            labels: ['Current', 'Competitor', 'Min Floor', 'Final Price'],
+            datasets: [{
+                data: [curr, comp, floor, final],
+                backgroundColor: ['#90caf9', '#ffab91', '#ef9a9a', '#66bb6a'],
+                borderRadius: 5
+            }]
+        };
+
+        if (chart) chart.destroy();
+        chart = new Chart(ctx, {
+            type: 'bar',
+            data: data,
+            options: {
+                responsive: true,
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: false, min: 30 } }
+            }
+        });
+    }
+
+    document.querySelectorAll('input').forEach(input => {
+        input.addEventListener('input', calculate);
+    });
+
+    calculate();
+</script>
+</body>
+</html>
