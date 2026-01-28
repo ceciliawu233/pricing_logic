@@ -119,7 +119,7 @@
         }
 
         document.getElementById('steps').innerHTML = steps.map(s => `<div class="logic-step">${s}</div>`).join('');
-        document.getElementById('final_price_display').innerText = `Final Suggested Price: $${finalPrice.toFixed(2)}`;
+        document.getElementById('final_price_display').innerText = `Final Adjusted Price: $${finalPrice.toFixed(2)}`;
 
         updateChart(curr, comp, floorPrice, finalPrice);
     }
@@ -163,6 +163,7 @@
 </script>
 </body>
 </html>
+
 
 
 
