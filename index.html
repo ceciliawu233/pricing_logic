@@ -5,31 +5,31 @@
     <title>Auto Pricer Simulator</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f8f9fa; color: #212529; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 10px; background-color: #f8f9fa; color: #212529; }
         
-        /* 布局调整：align-items: flex-start 防止左右高度强制拉伸 */
-        .container { display: flex; gap: 25px; max-width: 1200px; margin: auto; align-items: flex-start; } 
+        /* 布局调整：align-items: flex-start 防止高度拉伸 */
+        .container { display: flex; gap: 20px; max-width: 1200px; margin: auto; align-items: flex-start; } 
         
-        /* 左右比例改为 1:1 对称，并增加最小宽度防止挤压 */
-        .controls { flex: 1; min-width: 300px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .visualization { flex: 1; min-width: 300px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        /* 左右比例 1:1 */
+        .controls { flex: 1; min-width: 300px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .visualization { flex: 1; min-width: 300px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         
-        /* 限制图表最大高度，防止变得巨大 */
-        #pricingChart { max-height: 400px; width: 100%; }
+        /* 【关键修改】强行压缩图表高度为 250px */
+        #pricingChart { max-height: 250px; width: 100%; }
 
-        .slider-group { margin-bottom: 15px; }
-        .sub-group { margin-left: 10px; padding-left: 10px; border-left: 3px solid #e9ecef; margin-bottom: 20px; }
-        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; color: #495057; }
+        .slider-group { margin-bottom: 12px; }
+        .sub-group { margin-left: 10px; padding-left: 10px; border-left: 3px solid #e9ecef; margin-bottom: 15px; }
+        label { display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.85rem; color: #495057; }
         input[type="range"], select { width: 100%; cursor: pointer; }
         
-        .result-panel { margin-top: 25px; padding: 20px; background: #f1f8e9; border-radius: 8px; border-left: 5px solid #4caf50; }
-        .logic-step { font-size: 0.85rem; margin-bottom: 8px; padding-left: 10px; color: #444; border-bottom: 1px solid #eee; padding-bottom: 4px; }
-        .warning { color: #d32f2f; font-weight: bold; background: #ffebee; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+        .result-panel { margin-top: 15px; padding: 15px; background: #f1f8e9; border-radius: 8px; border-left: 5px solid #4caf50; }
+        .logic-step { font-size: 0.8rem; margin-bottom: 6px; padding-left: 10px; color: #444; border-bottom: 1px solid #eee; padding-bottom: 4px; }
+        .warning { color: #d32f2f; font-weight: bold; background: #ffebee; padding: 2px 6px; border-radius: 4px; display: inline-block; }
         .config-error { color: #c62828; font-weight: bold; background: #ffcdd2; padding: 5px; border-radius: 4px; margin-bottom: 5px; display: block; }
         
-        h2 { text-align: center; color: #1a73e8; margin-bottom: 30px; }
-        hr { border: 0; border-top: 1px dashed #ccc; margin: 20px 0; }
-        .dynamic-slider { background: #f8f9fa; padding: 10px; border-radius: 5px; border: 1px solid #dee2e6; margin-top: 5px; }
+        h2 { text-align: center; color: #1a73e8; margin-bottom: 20px; font-size: 1.5rem; }
+        hr { border: 0; border-top: 1px dashed #ccc; margin: 15px 0; }
+        .dynamic-slider { background: #f8f9fa; padding: 8px; border-radius: 5px; border: 1px solid #dee2e6; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -249,7 +249,7 @@
             data: data,
             options: {
                 responsive: true,
-                maintainAspectRatio: false, // 允许自定义高度
+                maintainAspectRatio: false, // 允许高度被 CSS 控制
                 plugins: { legend: { display: false } },
                 scales: { 
                     y: { beginAtZero: false, min: 30, grid: { display: false } },
