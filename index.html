@@ -6,17 +6,27 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f8f9fa; color: #212529; }
-        .container { display: flex; gap: 25px; max-width: 1200px; margin: auto; } 
-        .controls { flex: 1; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .visualization { flex: 1.5; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        
+        /* 布局调整：align-items: flex-start 防止左右高度强制拉伸 */
+        .container { display: flex; gap: 25px; max-width: 1200px; margin: auto; align-items: flex-start; } 
+        
+        /* 左右比例改为 1:1 对称，并增加最小宽度防止挤压 */
+        .controls { flex: 1; min-width: 300px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .visualization { flex: 1; min-width: 300px; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        
+        /* 限制图表最大高度，防止变得巨大 */
+        #pricingChart { max-height: 400px; width: 100%; }
+
         .slider-group { margin-bottom: 15px; }
         .sub-group { margin-left: 10px; padding-left: 10px; border-left: 3px solid #e9ecef; margin-bottom: 20px; }
         label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; color: #495057; }
         input[type="range"], select { width: 100%; cursor: pointer; }
+        
         .result-panel { margin-top: 25px; padding: 20px; background: #f1f8e9; border-radius: 8px; border-left: 5px solid #4caf50; }
         .logic-step { font-size: 0.85rem; margin-bottom: 8px; padding-left: 10px; color: #444; border-bottom: 1px solid #eee; padding-bottom: 4px; }
         .warning { color: #d32f2f; font-weight: bold; background: #ffebee; padding: 4px 8px; border-radius: 4px; display: inline-block; }
         .config-error { color: #c62828; font-weight: bold; background: #ffcdd2; padding: 5px; border-radius: 4px; margin-bottom: 5px; display: block; }
+        
         h2 { text-align: center; color: #1a73e8; margin-bottom: 30px; }
         hr { border: 0; border-top: 1px dashed #ccc; margin: 20px 0; }
         .dynamic-slider { background: #f8f9fa; padding: 10px; border-radius: 5px; border: 1px solid #dee2e6; margin-top: 5px; }
@@ -116,22 +126,17 @@
     }
 
     function calculate() {
-        // Inputs
         const curr = parseFloat(document.getElementById('curr_price').value);
         const comp = parseFloat(document.getElementById('comp_price').value);
         const targetType = document.getElementById('price_target').value;
         const beatPct = parseInt(document.getElementById('beat_pct').value);
         const losePct = parseInt(document.getElementById('lose_pct').value);
-        
         const mtr = parseFloat(document.getElementById('mtr').value) / 100;
-        
         const boundUp = parseFloat(document.getElementById('bound_up').value) / 100;
         const boundDown = parseFloat(document.getElementById('bound_down').value) / 100;
-        
         const thrUp = parseFloat(document.getElementById('thr_up').value) / 100;
         const thrDown = parseFloat(document.getElementById('thr_down').value) / 100;
 
-        // UI Updates
         document.getElementById('val_curr').innerText = curr;
         document.getElementById('val_comp').innerText = comp;
         document.getElementById('val_beat_pct').innerText = beatPct;
@@ -145,15 +150,11 @@
         let steps = [];
         let finalPrice = curr;
 
-        // --- STEP 0: CONFIGURATION VALIDATION ---
-        if (boundUp <= thrUp) {
-            steps.push(`<span class="config-error">⚠ Rule Error: Uplift Bound (${(boundUp*100).toFixed(0)}%) must be wider than Uplift Threshold (${(thrUp*100).toFixed(0)}%).</span>`);
-        }
-        if (boundDown <= thrDown) {
-            steps.push(`<span class="config-error">⚠ Rule Error: Downlift Bound (${(boundDown*100).toFixed(0)}%) must be wider than Downlift Threshold (${(thrDown*100).toFixed(0)}%).</span>`);
-        }
+        // STEP 0: CONFIG CHECK
+        if (boundUp <= thrUp) steps.push(`<span class="config-error">⚠ Rule Error: Uplift Bound (${(boundUp*100).toFixed(0)}%) must be wider than Uplift Threshold (${(thrUp*100).toFixed(0)}%).</span>`);
+        if (boundDown <= thrDown) steps.push(`<span class="config-error">⚠ Rule Error: Downlift Bound (${(boundDown*100).toFixed(0)}%) must be wider than Downlift Threshold (${(thrDown*100).toFixed(0)}%).</span>`);
 
-        // --- STEP 1: CALCULATE RAW TARGET ---
+        // STEP 1: TARGET
         let rawTarget = comp;
         if (targetType === 'beat') {
             rawTarget = comp * (1 - beatPct/100);
@@ -165,55 +166,51 @@
             steps.push(`1. <b>Strategy:</b> MEET Competitor. Initial Target: $${rawTarget.toFixed(2)}`);
         }
 
-        // --- STEP 2: MARGIN CHECK (PRE-CALC) ---
+        // STEP 2: FLOOR
         const cost = 80; 
         const floorPrice = cost / (1 - mtr);
         steps.push(`2. <b>Profit Floor:</b> We cannot sell below $${floorPrice.toFixed(2)} (to keep ${mtr*100}% margin).`);
 
-        // --- STEP 3: SAFETY CHECK (BOUNDS) ---
+        // STEP 3: BOUNDS
         const gap = comp - curr; 
         const gapPct = Math.abs(gap) / curr;
         let boundPassed = true;
 
         if (gap > 0) {
-            // Competitor is Higher
             if (gapPct > boundUp) {
-                steps.push(`3. <span class="warning"><b>Safety Check Failed (Uplift Bound):</b> Competitor is Higher by ${(gapPct*100).toFixed(1)}%. This exceeds the limit of ${boundUp*100}%. System ignores this as an error. STOP.</span>`);
+                steps.push(`3. <span class="warning"><b>Safety Check Failed (Uplift Bound):</b> Competitor is Higher by ${(gapPct*100).toFixed(1)}%. Exceeds limit of ${boundUp*100}%. System ignores this. STOP.</span>`);
                 boundPassed = false;
             } else {
-                steps.push(`3. <b>Safety Check:</b> Competitor price gap is within the safe zone.`);
+                steps.push(`3. <b>Safety Check:</b> Competitor price gap is within safe zone.`);
             }
         } else {
-            // Competitor is Lower
             if (gapPct > boundDown) {
-                steps.push(`3. <span class="warning"><b>Safety Check Failed (Downlift Bound):</b> Competitor is Lower by ${(gapPct*100).toFixed(1)}%. This exceeds the limit of ${boundDown*100}%. System ignores this as an error. STOP.</span>`);
+                steps.push(`3. <span class="warning"><b>Safety Check Failed (Downlift Bound):</b> Competitor is Lower by ${(gapPct*100).toFixed(1)}%. Exceeds limit of ${boundDown*100}%. System ignores this. STOP.</span>`);
                 boundPassed = false;
             } else {
-                steps.push(`3. <b>Safety Check:</b> Competitor price gap is within the safe zone.`);
+                steps.push(`3. <b>Safety Check:</b> Competitor price gap is within safe zone.`);
             }
         }
 
         if (boundPassed) {
-            // --- STEP 4: SPEED LIMIT (THRESHOLDS) ---
+            // STEP 4: THRESHOLDS
             let moveNeeded = rawTarget - curr;
             let movePct = Math.abs(moveNeeded) / curr;
             
             if (moveNeeded > 0) {
-                // Uplift Scenario
                 let maxMove = curr * thrUp;
                 if (moveNeeded > maxMove) {
                     finalPrice = curr + maxMove;
-                    steps.push(`4. <b>Speed Limit Hit (Uplift Threshold):</b> Price wants to jump +${(movePct*100).toFixed(1)}%, but max allowed is +${(thrUp*100).toFixed(0)}%. Capped at $${finalPrice.toFixed(2)}`);
+                    steps.push(`4. <b>Speed Limit Hit (Uplift):</b> Price wants to jump +${(movePct*100).toFixed(1)}%, but max allowed is +${(thrUp*100).toFixed(0)}%. Capped at $${finalPrice.toFixed(2)}`);
                 } else {
                     finalPrice = rawTarget;
                     steps.push(`4. <b>Speed Limit:</b> Price increase is within limits. Adjusting to $${finalPrice.toFixed(2)}`);
                 }
             } else {
-                // Downlift Scenario
                 let maxMove = curr * thrDown;
                 if (Math.abs(moveNeeded) > maxMove) {
                     finalPrice = curr - maxMove;
-                    steps.push(`4. <b>Speed Limit Hit (Downlift Threshold):</b> Price wants to drop -${(movePct*100).toFixed(1)}%, but max allowed is -${(thrDown*100).toFixed(0)}%. Capped at $${finalPrice.toFixed(2)}`);
+                    steps.push(`4. <b>Speed Limit Hit (Downlift):</b> Price wants to drop -${(movePct*100).toFixed(1)}%, but max allowed is -${(thrDown*100).toFixed(0)}%. Capped at $${finalPrice.toFixed(2)}`);
                 } else {
                     finalPrice = rawTarget;
                     steps.push(`4. <b>Speed Limit:</b> Price drop is within limits. Adjusting to $${finalPrice.toFixed(2)}`);
@@ -223,7 +220,7 @@
             finalPrice = curr; 
         }
 
-        // --- STEP 5: FINAL FLOOR CORRECTION ---
+        // STEP 5: FINAL CHECK
         if (finalPrice < floorPrice) {
             finalPrice = floorPrice;
             steps.push(`5. <span class="warning"><b>Profit Protection:</b> Price was too low. Forced up to $${finalPrice.toFixed(2)} to save margin.</span>`);
@@ -231,7 +228,6 @@
             steps.push(`5. <b>Final Check:</b> Price is profitable. Ready to publish.`);
         }
 
-        // Render
         document.getElementById('steps').innerHTML = steps.map(s => `<div class="logic-step">${s}</div>`).join('');
         document.getElementById('final_price_display').innerText = `Final Adjusted Price: $${finalPrice.toFixed(2)}`;
         updateChart(curr, comp, floorPrice, finalPrice);
@@ -253,7 +249,7 @@
             data: data,
             options: {
                 responsive: true,
-                maintainAspectRatio: false,
+                maintainAspectRatio: false, // 允许自定义高度
                 plugins: { legend: { display: false } },
                 scales: { 
                     y: { beginAtZero: false, min: 30, grid: { display: false } },
@@ -271,6 +267,7 @@
 </script>
 </body>
 </html>
+
 
 
 
