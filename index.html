@@ -2,21 +2,24 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Pricing Strategy Simulator</title>
+    <title>Auto Pricer Simulator</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 20px; background-color: #f8f9fa; color: #212529; }
-        .container { display: flex; gap: 25px; max-width: 1100px; margin: auto; } 
+        .container { display: flex; gap: 25px; max-width: 1200px; margin: auto; } 
         .controls { flex: 1; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
         .visualization { flex: 1.5; background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .slider-group { margin-bottom: 20px; }
-        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.95rem; color: #495057; }
-        input[type="range"] { width: 100%; cursor: pointer; }
+        .slider-group { margin-bottom: 15px; }
+        .sub-group { margin-left: 10px; padding-left: 10px; border-left: 3px solid #e9ecef; margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; font-weight: 600; font-size: 0.9rem; color: #495057; }
+        input[type="range"], select { width: 100%; cursor: pointer; }
         .result-panel { margin-top: 25px; padding: 20px; background: #f1f8e9; border-radius: 8px; border-left: 5px solid #4caf50; }
         .logic-step { font-size: 0.85rem; margin-bottom: 8px; padding-left: 10px; color: #444; border-bottom: 1px solid #eee; padding-bottom: 4px; }
-        .warning { color: #d32f2f; font-weight: bold; background: #ffebee; padding: 2px 5px; border-radius: 3px; }
+        .warning { color: #d32f2f; font-weight: bold; background: #ffebee; padding: 4px 8px; border-radius: 4px; display: inline-block; }
+        .config-error { color: #c62828; font-weight: bold; background: #ffcdd2; padding: 5px; border-radius: 4px; margin-bottom: 5px; display: block; }
         h2 { text-align: center; color: #1a73e8; margin-bottom: 30px; }
         hr { border: 0; border-top: 1px dashed #ccc; margin: 20px 0; }
+        .dynamic-slider { background: #f8f9fa; padding: 10px; border-radius: 5px; border: 1px solid #dee2e6; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -38,21 +41,55 @@
         </div>
 
         <hr>
-        <h3>Strategic Constraints</h3>
+        <h3>Positioning Strategy</h3>
+        <div class="slider-group">
+            <label>Price Target:</label>
+            <select id="price_target" onchange="toggleStrategySliders()">
+                <option value="meet">MEET (Match Competitor)</option>
+                <option value="beat">BEAT (Lower than Competitor)</option>
+                <option value="lose">LOSE (Higher than Competitor)</option>
+            </select>
+            
+            <div id="beat_config" class="dynamic-slider" style="display:none;">
+                <label>Beat %: <span id="val_beat_pct">2</span>%</label>
+                <input type="range" id="beat_pct" min="1" max="10" value="2" step="1">
+            </div>
+            <div id="lose_config" class="dynamic-slider" style="display:none;">
+                <label>Lose %: <span id="val_lose_pct">5</span>%</label>
+                <input type="range" id="lose_pct" min="1" max="10" value="5" step="1">
+            </div>
+        </div>
+
+        <hr>
+        <h3>Guardrails</h3>
 
         <div class="slider-group">
-            <label>Min Take Rate: <span id="val_mtr">10</span>%</label>
+            <label>Profit Floor (Min Take Rate): <span id="val_mtr">10</span>%</label>
             <input type="range" id="mtr" min="0" max="30" value="10">
         </div>
 
-        <div class="slider-group">
-            <label>Bound (Max Gap Allowed): <span id="val_bound">30</span>%</label>
-            <input type="range" id="bound" min="5" max="50" value="30">
+        <label>Safety Check (Ignore Extreme Prices)</label>
+        <div class="sub-group">
+            <div class="slider-group">
+                <label>Uplift Bound (Ignore if Comp is Higher by): <span id="val_bound_up">50</span>%</label>
+                <input type="range" id="bound_up" min="10" max="100" value="50">
+            </div>
+            <div class="slider-group">
+                <label>Downlift Bound (Ignore if Comp is Lower by): <span id="val_bound_down">30</span>%</label>
+                <input type="range" id="bound_down" min="10" max="100" value="30">
+            </div>
         </div>
 
-        <div class="slider-group">
-            <label>Threshold (Max Price Change): <span id="val_thr">5</span>%</label>
-            <input type="range" id="thr" min="1" max="20" value="5">
+        <label>Speed Limits (Max Price Jump)</label>
+        <div class="sub-group">
+            <div class="slider-group">
+                <label>Uplift Threshold (Max Allowed Increase): <span id="val_thr_up">10</span>%</label>
+                <input type="range" id="thr_up" min="1" max="20" value="10">
+            </div>
+            <div class="slider-group">
+                <label>Downlift Threshold (Max Allowed Drop): <span id="val_thr_down">5</span>%</label>
+                <input type="range" id="thr_down" min="1" max="20" value="5">
+            </div>
         </div>
     </div>
 
@@ -60,9 +97,9 @@
         <canvas id="pricingChart"></canvas>
         
         <div class="result-panel">
-            <strong>Decision Logic Trace:</strong>
+            <strong>Logic Trace (Why did the price change?):</strong>
             <div id="steps" style="margin-top: 10px;"></div>
-            <h3 id="final_price_display" style="color: #2e7d32; margin-top: 15px;">Final Adjusted Price: $100</h3>
+            <h3 id="final_price_display" style="color: #2e7d32; margin-top: 15px;">Final Adjusted Price: $100.00</h3>
         </div>
     </div>
 </div>
@@ -71,66 +108,142 @@
     const ctx = document.getElementById('pricingChart').getContext('2d');
     let chart;
 
+    function toggleStrategySliders() {
+        const type = document.getElementById('price_target').value;
+        document.getElementById('beat_config').style.display = (type === 'beat') ? 'block' : 'none';
+        document.getElementById('lose_config').style.display = (type === 'lose') ? 'block' : 'none';
+        calculate();
+    }
+
     function calculate() {
+        // Inputs
         const curr = parseFloat(document.getElementById('curr_price').value);
         const comp = parseFloat(document.getElementById('comp_price').value);
+        const targetType = document.getElementById('price_target').value;
+        const beatPct = parseInt(document.getElementById('beat_pct').value);
+        const losePct = parseInt(document.getElementById('lose_pct').value);
+        
         const mtr = parseFloat(document.getElementById('mtr').value) / 100;
-        const bound = parseFloat(document.getElementById('bound').value) / 100;
-        const thr = parseFloat(document.getElementById('thr').value) / 100;
+        
+        const boundUp = parseFloat(document.getElementById('bound_up').value) / 100;
+        const boundDown = parseFloat(document.getElementById('bound_down').value) / 100;
+        
+        const thrUp = parseFloat(document.getElementById('thr_up').value) / 100;
+        const thrDown = parseFloat(document.getElementById('thr_down').value) / 100;
 
+        // UI Updates
         document.getElementById('val_curr').innerText = curr;
         document.getElementById('val_comp').innerText = comp;
+        document.getElementById('val_beat_pct').innerText = beatPct;
+        document.getElementById('val_lose_pct').innerText = losePct;
         document.getElementById('val_mtr').innerText = (mtr*100).toFixed(0);
-        document.getElementById('val_bound').innerText = (bound*100).toFixed(0);
-        document.getElementById('val_thr').innerText = (thr*100).toFixed(0);
+        document.getElementById('val_bound_up').innerText = (boundUp*100).toFixed(0);
+        document.getElementById('val_bound_down').innerText = (boundDown*100).toFixed(0);
+        document.getElementById('val_thr_up').innerText = (thrUp*100).toFixed(0);
+        document.getElementById('val_thr_down').innerText = (thrDown*100).toFixed(0);
 
         let steps = [];
         let finalPrice = curr;
 
-        const cost = 80;
-        const floorPrice = cost / (1 - mtr);
-        steps.push(`1. <b>Margin Check:</b> Min Take Rate requires price ≥ $${floorPrice.toFixed(2)}`);
+        // --- STEP 0: CONFIGURATION VALIDATION ---
+        if (boundUp <= thrUp) {
+            steps.push(`<span class="config-error">⚠ Rule Error: Uplift Bound (${(boundUp*100).toFixed(0)}%) must be wider than Uplift Threshold (${(thrUp*100).toFixed(0)}%).</span>`);
+        }
+        if (boundDown <= thrDown) {
+            steps.push(`<span class="config-error">⚠ Rule Error: Downlift Bound (${(boundDown*100).toFixed(0)}%) must be wider than Downlift Threshold (${(thrDown*100).toFixed(0)}%).</span>`);
+        }
 
-        const diffPercent = Math.abs(comp - curr) / curr;
-        if (diffPercent > bound) {
-            steps.push(`2. <span class="warning"><b>Bound Triggered:</b> Gap (${(diffPercent*100).toFixed(1)}%) exceeds Bound (${bound*100}%). NO CHANGE.</span>`);
-            finalPrice = curr;
+        // --- STEP 1: CALCULATE RAW TARGET ---
+        let rawTarget = comp;
+        if (targetType === 'beat') {
+            rawTarget = comp * (1 - beatPct/100);
+            steps.push(`1. <b>Strategy:</b> BEAT Competitor by ${beatPct}%. Initial Target: $${rawTarget.toFixed(2)}`);
+        } else if (targetType === 'lose') {
+            rawTarget = comp * (1 + losePct/100);
+            steps.push(`1. <b>Strategy:</b> LOSE to Competitor by ${losePct}%. Initial Target: $${rawTarget.toFixed(2)}`);
         } else {
-            steps.push(`2. <b>Bound Check:</b> Price gap within acceptable range.`);
-            
-            let targetDiff = comp - curr;
-            let maxAllowedChange = curr * thr;
-            
-            if (Math.abs(targetDiff) > maxAllowedChange) {
-                let direction = targetDiff > 0 ? 1 : -1;
-                finalPrice = curr + (direction * maxAllowedChange);
-                steps.push(`3. <b>Threshold Applied:</b> Target was $${comp}, but single step is capped at $${maxAllowedChange.toFixed(2)}. New Target: $${finalPrice.toFixed(2)}`);
+            steps.push(`1. <b>Strategy:</b> MEET Competitor. Initial Target: $${rawTarget.toFixed(2)}`);
+        }
+
+        // --- STEP 2: MARGIN CHECK (PRE-CALC) ---
+        const cost = 80; 
+        const floorPrice = cost / (1 - mtr);
+        steps.push(`2. <b>Profit Floor:</b> We cannot sell below $${floorPrice.toFixed(2)} (to keep ${mtr*100}% margin).`);
+
+        // --- STEP 3: SAFETY CHECK (BOUNDS) ---
+        const gap = comp - curr; 
+        const gapPct = Math.abs(gap) / curr;
+        let boundPassed = true;
+
+        if (gap > 0) {
+            // Competitor is Higher
+            if (gapPct > boundUp) {
+                steps.push(`3. <span class="warning"><b>Safety Check Failed (Uplift Bound):</b> Competitor is Higher by ${(gapPct*100).toFixed(1)}%. This exceeds the limit of ${boundUp*100}%. System ignores this as an error. STOP.</span>`);
+                boundPassed = false;
             } else {
-                finalPrice = comp;
-                steps.push(`3. <b>Within Threshold:</b> Adjusting price directly to competitor at $${finalPrice}`);
+                steps.push(`3. <b>Safety Check:</b> Competitor price gap is within the safe zone.`);
+            }
+        } else {
+            // Competitor is Lower
+            if (gapPct > boundDown) {
+                steps.push(`3. <span class="warning"><b>Safety Check Failed (Downlift Bound):</b> Competitor is Lower by ${(gapPct*100).toFixed(1)}%. This exceeds the limit of ${boundDown*100}%. System ignores this as an error. STOP.</span>`);
+                boundPassed = false;
+            } else {
+                steps.push(`3. <b>Safety Check:</b> Competitor price gap is within the safe zone.`);
             }
         }
 
-        if (finalPrice < floorPrice) {
-            finalPrice = floorPrice;
-            steps.push(`4. <span class="warning"><b>Floor Correction:</b> Calculated price was below margin floor. Forced to $${finalPrice.toFixed(2)}</span>`);
+        if (boundPassed) {
+            // --- STEP 4: SPEED LIMIT (THRESHOLDS) ---
+            let moveNeeded = rawTarget - curr;
+            let movePct = Math.abs(moveNeeded) / curr;
+            
+            if (moveNeeded > 0) {
+                // Uplift Scenario
+                let maxMove = curr * thrUp;
+                if (moveNeeded > maxMove) {
+                    finalPrice = curr + maxMove;
+                    steps.push(`4. <b>Speed Limit Hit (Uplift Threshold):</b> Price wants to jump +${(movePct*100).toFixed(1)}%, but max allowed is +${(thrUp*100).toFixed(0)}%. Capped at $${finalPrice.toFixed(2)}`);
+                } else {
+                    finalPrice = rawTarget;
+                    steps.push(`4. <b>Speed Limit:</b> Price increase is within limits. Adjusting to $${finalPrice.toFixed(2)}`);
+                }
+            } else {
+                // Downlift Scenario
+                let maxMove = curr * thrDown;
+                if (Math.abs(moveNeeded) > maxMove) {
+                    finalPrice = curr - maxMove;
+                    steps.push(`4. <b>Speed Limit Hit (Downlift Threshold):</b> Price wants to drop -${(movePct*100).toFixed(1)}%, but max allowed is -${(thrDown*100).toFixed(0)}%. Capped at $${finalPrice.toFixed(2)}`);
+                } else {
+                    finalPrice = rawTarget;
+                    steps.push(`4. <b>Speed Limit:</b> Price drop is within limits. Adjusting to $${finalPrice.toFixed(2)}`);
+                }
+            }
         } else {
-            steps.push(`4. <b>Final Check:</b> Price maintains required margin.`);
+            finalPrice = curr; 
         }
 
+        // --- STEP 5: FINAL FLOOR CORRECTION ---
+        if (finalPrice < floorPrice) {
+            finalPrice = floorPrice;
+            steps.push(`5. <span class="warning"><b>Profit Protection:</b> Price was too low. Forced up to $${finalPrice.toFixed(2)} to save margin.</span>`);
+        } else {
+            steps.push(`5. <b>Final Check:</b> Price is profitable. Ready to publish.`);
+        }
+
+        // Render
         document.getElementById('steps').innerHTML = steps.map(s => `<div class="logic-step">${s}</div>`).join('');
         document.getElementById('final_price_display').innerText = `Final Adjusted Price: $${finalPrice.toFixed(2)}`;
-
         updateChart(curr, comp, floorPrice, finalPrice);
     }
 
     function updateChart(curr, comp, floor, final) {
         const data = {
-            labels: ['Current Admin', 'Competitor', 'Min Floor', 'Final Price'],
+            labels: ['Current Admin', 'Competitor', 'Profit Floor', 'Final Price'],
             datasets: [{
                 data: [curr, comp, floor, final],
                 backgroundColor: ['#90caf9', '#ffab91', '#ef9a9a', '#66bb6a'],
-                borderRadius: 5
+                borderRadius: 4
             }]
         };
 
@@ -140,26 +253,21 @@
             data: data,
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
                 plugins: { legend: { display: false } },
                 scales: { 
-                    y: { 
-                        beginAtZero: false, 
-                        min: 30,
-                        grid: { display: false } // 去掉横向辅助线
-                    },
-                    x: {
-                        grid: { display: false } // 去掉纵向辅助线
-                    }
+                    y: { beginAtZero: false, min: 30, grid: { display: false } },
+                    x: { grid: { display: false } }
                 }
             }
         });
     }
 
-    document.querySelectorAll('input').forEach(input => {
-        input.addEventListener('input', calculate);
+    document.querySelectorAll('input, select').forEach(el => {
+        el.addEventListener('input', calculate);
     });
 
-    calculate();
+    toggleStrategySliders();
 </script>
 </body>
 </html>
