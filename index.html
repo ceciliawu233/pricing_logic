@@ -5,111 +5,161 @@
     <title>Auto Pricer Simulator</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 10px; background-color: #f8f9fa; color: #212529; }
+        /* 全局紧凑设置 */
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 10px; background-color: #f8f9fa; color: #212529; box-sizing: border-box; }
         
-        /* 布局调整：align-items: flex-start 防止高度拉伸 */
-        .container { display: flex; gap: 20px; max-width: 1200px; margin: auto; align-items: flex-start; } 
+        .container { 
+            display: flex; 
+            gap: 15px; /* 减小左右间距 */
+            max-width: 1200px; 
+            margin: auto; 
+            align-items: stretch; /* 让左右高度自动拉伸对齐，保持外观一致 */
+        } 
         
-        /* 左右比例 1:1 */
-        .controls { flex: 1; min-width: 300px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        .visualization { flex: 1; min-width: 300px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-        
-        /* 【关键修改】强行压缩图表高度为 250px */
-        #pricingChart { max-height: 250px; width: 100%; }
+        /* 左右容器基础样式 */
+        .controls, .visualization { 
+            flex: 1; 
+            min-width: 0; /* 防止内容撑破 flex 布局 */
+            background: white; 
+            padding: 15px 20px; /* 减小内部留白 */
+            border-radius: 8px; 
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05); 
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
 
-        .slider-group { margin-bottom: 12px; }
-        .sub-group { margin-left: 10px; padding-left: 10px; border-left: 3px solid #e9ecef; margin-bottom: 15px; }
-        label { display: block; margin-bottom: 4px; font-weight: 600; font-size: 0.85rem; color: #495057; }
-        input[type="range"], select { width: 100%; cursor: pointer; }
+        /* ---------------- 左侧压缩核心逻辑 ---------------- */
         
-        .result-panel { margin-top: 15px; padding: 15px; background: #f1f8e9; border-radius: 8px; border-left: 5px solid #4caf50; }
-        .logic-step { font-size: 0.8rem; margin-bottom: 6px; padding-left: 10px; color: #444; border-bottom: 1px solid #eee; padding-bottom: 4px; }
-        .warning { color: #d32f2f; font-weight: bold; background: #ffebee; padding: 2px 6px; border-radius: 4px; display: inline-block; }
-        .config-error { color: #c62828; font-weight: bold; background: #ffcdd2; padding: 5px; border-radius: 4px; margin-bottom: 5px; display: block; }
+        h3 { margin: 0 0 10px 0; font-size: 1rem; color: #1a73e8; border-bottom: 1px solid #eee; padding-bottom: 5px; }
         
-        h2 { text-align: center; color: #1a73e8; margin-bottom: 20px; font-size: 1.5rem; }
-        hr { border: 0; border-top: 1px dashed #ccc; margin: 15px 0; }
-        .dynamic-slider { background: #f8f9fa; padding: 8px; border-radius: 5px; border: 1px solid #dee2e6; margin-top: 5px; }
+        /* 将 Slider Group 设为紧凑模式 */
+        .slider-group { margin-bottom: 8px; }
+        label { display: block; margin-bottom: 2px; font-weight: 600; font-size: 0.8rem; color: #555; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        input[type="range"], select { width: 100%; cursor: pointer; margin: 0; }
+        hr { margin: 10px 0; border: 0; border-top: 1px dashed #ddd; }
+
+        /* 【关键】双栏布局：让 Uplift/Downlift 并排显示，节省垂直空间 */
+        .sub-group { 
+            display: flex; 
+            gap: 10px; 
+            margin-bottom: 8px; 
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 6px;
+        }
+        .sub-group .slider-group { 
+            flex: 1; 
+            margin-bottom: 0; /* 去掉内部 margin */
+        }
+        
+        .section-label { font-size: 0.8rem; font-weight: bold; color: #333; margin-bottom: 4px; display: block; }
+
+        /* ---------------- 右侧样式 ---------------- */
+        
+        #pricingChart { 
+            max-height: 220px; /* 进一步压缩图表高度以匹配左侧 */
+            width: 100%; 
+            margin-bottom: 10px;
+        }
+        
+        .result-panel { 
+            flex-grow: 1; /* 填满剩余空间 */
+            padding: 12px; 
+            background: #f1f8e9; 
+            border-radius: 6px; 
+            border-left: 4px solid #4caf50; 
+            overflow-y: auto; /* 如果内容太多，允许滚动 */
+            max-height: 300px;
+        }
+        
+        .logic-step { font-size: 0.75rem; margin-bottom: 5px; padding-left: 8px; color: #444; border-bottom: 1px solid #e0e0e0; padding-bottom: 2px; }
+        #final_price_display { margin: 10px 0 0 0; font-size: 1.1rem; color: #2e7d32; }
+        
+        .warning { color: #d32f2f; font-weight: bold; }
+        .config-error { color: #c62828; font-weight: bold; background: #ffcdd2; padding: 3px; font-size: 0.75rem; border-radius: 3px; display: block; }
+        
+        /* 标题隐藏或极小化，省空间 */
+        h2 { display: none; } 
     </style>
 </head>
 <body>
 
-<h2>Auto Pricer Simulator</h2>
-
 <div class="container">
     <div class="controls">
-        <h3>Input Parameters</h3>
+        <h3>Parameters</h3>
         
-        <div class="slider-group">
-            <label>Current Admin Price: $<span id="val_curr">100</span></label>
-            <input type="range" id="curr_price" min="50" max="200" value="100">
-        </div>
-
-        <div class="slider-group">
-            <label>Competitor Price: $<span id="val_comp">90</span></label>
-            <input type="range" id="comp_price" min="30" max="200" value="90">
+        <div class="sub-group" style="background:none; padding:0;">
+            <div class="slider-group">
+                <label>Current Admin Price: $<span id="val_curr">100</span></label>
+                <input type="range" id="curr_price" min="50" max="200" value="100">
+            </div>
+            <div class="slider-group">
+                <label>Competitor Price: $<span id="val_comp">90</span></label>
+                <input type="range" id="comp_price" min="30" max="200" value="90">
+            </div>
         </div>
 
         <hr>
-        <h3>Positioning Strategy</h3>
+        
         <div class="slider-group">
-            <label>Price Target:</label>
+            <label>Price Target Strategy:</label>
             <select id="price_target" onchange="toggleStrategySliders()">
                 <option value="meet">MEET (Match Competitor)</option>
-                <option value="beat">BEAT (Lower than Competitor)</option>
-                <option value="lose">LOSE (Higher than Competitor)</option>
+                <option value="beat">BEAT (Lower than Comp)</option>
+                <option value="lose">LOSE (Higher than Comp)</option>
             </select>
             
-            <div id="beat_config" class="dynamic-slider" style="display:none;">
+            <div id="beat_config" style="margin-top:5px; display:none;">
                 <label>Beat %: <span id="val_beat_pct">2</span>%</label>
                 <input type="range" id="beat_pct" min="1" max="10" value="2" step="1">
             </div>
-            <div id="lose_config" class="dynamic-slider" style="display:none;">
+            <div id="lose_config" style="margin-top:5px; display:none;">
                 <label>Lose %: <span id="val_lose_pct">5</span>%</label>
                 <input type="range" id="lose_pct" min="1" max="10" value="5" step="1">
             </div>
         </div>
-
-        <hr>
-        <h3>Guardrails</h3>
 
         <div class="slider-group">
             <label>Profit Floor (Min Take Rate): <span id="val_mtr">10</span>%</label>
             <input type="range" id="mtr" min="0" max="30" value="10">
         </div>
 
-        <label>Safety Check (Ignore Extreme Prices)</label>
+        <hr>
+
+        <span class="section-label">Safety Check (Ignore Bounds)</span>
         <div class="sub-group">
             <div class="slider-group">
-                <label>Uplift Bound (Ignore if Comp is Higher by): <span id="val_bound_up">50</span>%</label>
+                <label>Uplift Bound: <span id="val_bound_up">50</span>%</label>
                 <input type="range" id="bound_up" min="10" max="100" value="50">
             </div>
             <div class="slider-group">
-                <label>Downlift Bound (Ignore if Comp is Lower by): <span id="val_bound_down">30</span>%</label>
+                <label>Downlift Bound: <span id="val_bound_down">30</span>%</label>
                 <input type="range" id="bound_down" min="10" max="100" value="30">
             </div>
         </div>
 
-        <label>Speed Limits (Max Price Jump)</label>
+        <span class="section-label">Speed Limits (Max Jump)</span>
         <div class="sub-group">
             <div class="slider-group">
-                <label>Uplift Threshold (Max Allowed Increase): <span id="val_thr_up">10</span>%</label>
+                <label>Up Limit: <span id="val_thr_up">10</span>%</label>
                 <input type="range" id="thr_up" min="1" max="20" value="10">
             </div>
             <div class="slider-group">
-                <label>Downlift Threshold (Max Allowed Drop): <span id="val_thr_down">5</span>%</label>
+                <label>Down Limit: <span id="val_thr_down">5</span>%</label>
                 <input type="range" id="thr_down" min="1" max="20" value="5">
             </div>
         </div>
     </div>
 
     <div class="visualization">
+        <h3>Simulation Result</h3>
         <canvas id="pricingChart"></canvas>
         
         <div class="result-panel">
-            <strong>Logic Trace (Why did the price change?):</strong>
-            <div id="steps" style="margin-top: 10px;"></div>
-            <h3 id="final_price_display" style="color: #2e7d32; margin-top: 15px;">Final Adjusted Price: $100.00</h3>
+            <strong style="font-size: 0.8rem;">Logic Trace:</strong>
+            <div id="steps" style="margin-top: 5px;"></div>
+            <h3 id="final_price_display">Final: $100.00</h3>
         </div>
     </div>
 </div>
@@ -151,25 +201,25 @@
         let finalPrice = curr;
 
         // STEP 0: CONFIG CHECK
-        if (boundUp <= thrUp) steps.push(`<span class="config-error">⚠ Rule Error: Uplift Bound (${(boundUp*100).toFixed(0)}%) must be wider than Uplift Threshold (${(thrUp*100).toFixed(0)}%).</span>`);
-        if (boundDown <= thrDown) steps.push(`<span class="config-error">⚠ Rule Error: Downlift Bound (${(boundDown*100).toFixed(0)}%) must be wider than Downlift Threshold (${(thrDown*100).toFixed(0)}%).</span>`);
+        if (boundUp <= thrUp) steps.push(`<span class="config-error">⚠ Config Error: Uplift Bound must be > Uplift Limit.</span>`);
+        if (boundDown <= thrDown) steps.push(`<span class="config-error">⚠ Config Error: Downlift Bound must be > Downlift Limit.</span>`);
 
         // STEP 1: TARGET
         let rawTarget = comp;
         if (targetType === 'beat') {
             rawTarget = comp * (1 - beatPct/100);
-            steps.push(`1. <b>Strategy:</b> BEAT Competitor by ${beatPct}%. Initial Target: $${rawTarget.toFixed(2)}`);
+            steps.push(`1. <b>Strategy:</b> BEAT (-${beatPct}%). Target: $${rawTarget.toFixed(2)}`);
         } else if (targetType === 'lose') {
             rawTarget = comp * (1 + losePct/100);
-            steps.push(`1. <b>Strategy:</b> LOSE to Competitor by ${losePct}%. Initial Target: $${rawTarget.toFixed(2)}`);
+            steps.push(`1. <b>Strategy:</b> LOSE (+${losePct}%). Target: $${rawTarget.toFixed(2)}`);
         } else {
-            steps.push(`1. <b>Strategy:</b> MEET Competitor. Initial Target: $${rawTarget.toFixed(2)}`);
+            steps.push(`1. <b>Strategy:</b> MEET. Target: $${rawTarget.toFixed(2)}`);
         }
 
         // STEP 2: FLOOR
         const cost = 80; 
         const floorPrice = cost / (1 - mtr);
-        steps.push(`2. <b>Profit Floor:</b> We cannot sell below $${floorPrice.toFixed(2)} (to keep ${mtr*100}% margin).`);
+        steps.push(`2. <b>Floor:</b> Min Price $${floorPrice.toFixed(2)} (${mtr*100}% margin).`);
 
         // STEP 3: BOUNDS
         const gap = comp - curr; 
@@ -178,17 +228,17 @@
 
         if (gap > 0) {
             if (gapPct > boundUp) {
-                steps.push(`3. <span class="warning"><b>Safety Check Failed (Uplift Bound):</b> Competitor is Higher by ${(gapPct*100).toFixed(1)}%. Exceeds limit of ${boundUp*100}%. System ignores this. STOP.</span>`);
+                steps.push(`3. <span class="warning"><b>Safety Check (Up):</b> Gap +${(gapPct*100).toFixed(1)}% > Limit ${boundUp*100}%. IGNORED.</span>`);
                 boundPassed = false;
             } else {
-                steps.push(`3. <b>Safety Check:</b> Competitor price gap is within safe zone.`);
+                steps.push(`3. <b>Safety Check:</b> Gap OK.`);
             }
         } else {
             if (gapPct > boundDown) {
-                steps.push(`3. <span class="warning"><b>Safety Check Failed (Downlift Bound):</b> Competitor is Lower by ${(gapPct*100).toFixed(1)}%. Exceeds limit of ${boundDown*100}%. System ignores this. STOP.</span>`);
+                steps.push(`3. <span class="warning"><b>Safety Check (Down):</b> Gap -${(gapPct*100).toFixed(1)}% > Limit ${boundDown*100}%. IGNORED.</span>`);
                 boundPassed = false;
             } else {
-                steps.push(`3. <b>Safety Check:</b> Competitor price gap is within safe zone.`);
+                steps.push(`3. <b>Safety Check:</b> Gap OK.`);
             }
         }
 
@@ -201,19 +251,19 @@
                 let maxMove = curr * thrUp;
                 if (moveNeeded > maxMove) {
                     finalPrice = curr + maxMove;
-                    steps.push(`4. <b>Speed Limit Hit (Uplift):</b> Price wants to jump +${(movePct*100).toFixed(1)}%, but max allowed is +${(thrUp*100).toFixed(0)}%. Capped at $${finalPrice.toFixed(2)}`);
+                    steps.push(`4. <b>Speed Limit (Up):</b> Jump +${(movePct*100).toFixed(1)}% capped at +${(thrUp*100).toFixed(0)}%. New: $${finalPrice.toFixed(2)}`);
                 } else {
                     finalPrice = rawTarget;
-                    steps.push(`4. <b>Speed Limit:</b> Price increase is within limits. Adjusting to $${finalPrice.toFixed(2)}`);
+                    steps.push(`4. <b>Speed Limit:</b> OK.`);
                 }
             } else {
                 let maxMove = curr * thrDown;
                 if (Math.abs(moveNeeded) > maxMove) {
                     finalPrice = curr - maxMove;
-                    steps.push(`4. <b>Speed Limit Hit (Downlift):</b> Price wants to drop -${(movePct*100).toFixed(1)}%, but max allowed is -${(thrDown*100).toFixed(0)}%. Capped at $${finalPrice.toFixed(2)}`);
+                    steps.push(`4. <b>Speed Limit (Down):</b> Drop -${(movePct*100).toFixed(1)}% capped at -${(thrDown*100).toFixed(0)}%. New: $${finalPrice.toFixed(2)}`);
                 } else {
                     finalPrice = rawTarget;
-                    steps.push(`4. <b>Speed Limit:</b> Price drop is within limits. Adjusting to $${finalPrice.toFixed(2)}`);
+                    steps.push(`4. <b>Speed Limit:</b> OK.`);
                 }
             }
         } else {
@@ -223,19 +273,19 @@
         // STEP 5: FINAL CHECK
         if (finalPrice < floorPrice) {
             finalPrice = floorPrice;
-            steps.push(`5. <span class="warning"><b>Profit Protection:</b> Price was too low. Forced up to $${finalPrice.toFixed(2)} to save margin.</span>`);
+            steps.push(`5. <span class="warning"><b>Floor Hit:</b> Price forced to $${finalPrice.toFixed(2)}</span>`);
         } else {
-            steps.push(`5. <b>Final Check:</b> Price is profitable. Ready to publish.`);
+            steps.push(`5. <b>Final:</b> Margin OK.`);
         }
 
         document.getElementById('steps').innerHTML = steps.map(s => `<div class="logic-step">${s}</div>`).join('');
-        document.getElementById('final_price_display').innerText = `Final Adjusted Price: $${finalPrice.toFixed(2)}`;
+        document.getElementById('final_price_display').innerText = `Final: $${finalPrice.toFixed(2)}`;
         updateChart(curr, comp, floorPrice, finalPrice);
     }
 
     function updateChart(curr, comp, floor, final) {
         const data = {
-            labels: ['Current Admin', 'Competitor', 'Profit Floor', 'Final Price'],
+            labels: ['Admin', 'Comp', 'Floor', 'Final'],
             datasets: [{
                 data: [curr, comp, floor, final],
                 backgroundColor: ['#90caf9', '#ffab91', '#ef9a9a', '#66bb6a'],
@@ -249,11 +299,11 @@
             data: data,
             options: {
                 responsive: true,
-                maintainAspectRatio: false, // 允许高度被 CSS 控制
+                maintainAspectRatio: false, 
                 plugins: { legend: { display: false } },
                 scales: { 
-                    y: { beginAtZero: false, min: 30, grid: { display: false } },
-                    x: { grid: { display: false } }
+                    y: { beginAtZero: false, min: 30, grid: { display: false }, ticks: { font: {size: 10} } },
+                    x: { grid: { display: false }, ticks: { font: {size: 10} } }
                 }
             }
         });
@@ -267,8 +317,3 @@
 </script>
 </body>
 </html>
-
-
-
-
-
